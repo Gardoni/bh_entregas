@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#6d28d9" />
+  <meta name="description" content="MVP de plataforma de entregas urbanas para Belo Horizonte." />
+  <title>BH Entrega</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="BH Entrega - início">
+      <span class="brand-mark">BH</span>
+      <span>
+        <strong>BH Entrega</strong>
+        <small>Entregas urbanas</small>
+      </span>
+    </a>
+    <nav class="top-actions">
+      <button id="installBtn" class="btn btn-ghost hidden">Instalar app</button>
+      <button id="logoutBtn" class="btn btn-outline hidden">Sair</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="landingView" class="view hero-view">
+      <div class="hero-copy">
+        <span class="eyebrow">Belo Horizonte e região</span>
+        <h1>Entregas rápidas, rastreadas e seguras.</h1>
+        <p>Solicite uma coleta, acompanhe o entregador e confirme a entrega pelo celular ou computador.</p>
+        <div class="hero-badges">
+          <span>✓ Pix e cartão</span>
+          <span>✓ Rastreamento</span>
+          <span>✓ Cliente, entregador e master</span>
+        </div>
+        <div class="hero-preview" aria-label="Prévia de entrega em andamento">
+          <span class="preview-icon">📦</span>
+          <span><strong>Entrega BH-2026-000128</strong><small>Savassi → Pampulha · chegada em 18 min</small></span>
+          <span class="preview-status">Em rota</span>
+        </div>
+      </div>
+
+      <div class="login-shell">
+        <div class="role-tabs" role="tablist" aria-label="Tipo de acesso">
+          <button class="role-tab active" data-role="client">Cliente</button>
+          <button class="role-tab" data-role="courier">Entregador</button>
+          <button class="role-tab" data-role="master">Master</button>
+        </div>
+
+        <form id="loginForm" class="card login-card">
+          <div>
+            <h2 id="loginTitle">Entrar como cliente</h2>
+            <p class="muted">Use sua conta ou preencha automaticamente com os dados de demonstração.</p>
+          </div>
+          <label>
+            E-mail
+            <input id="loginEmail" type="email" required autocomplete="username" placeholder="seuemail@exemplo.com" />
+          </label>
+          <label>
+            Senha
+            <input id="loginPassword" type="password" required autocomplete="current-password" placeholder="••••••••" />
+          </label>
+          <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+          <button id="fillDemoBtn" class="btn btn-soft btn-block" type="button">Usar acesso de demonstração</button>
+          <button id="openRegisterBtn" class="link-button" type="button">Criar novo cadastro</button>
+          <div class="demo-note">
+            <strong>Ambiente demonstrativo:</strong> pagamentos, documentos e rastreamento são simulados localmente.
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="appView" class="view app-view hidden">
+      <aside class="sidebar">
+        <div class="profile-chip">
+          <div id="profileAvatar" class="avatar">U</div>
+          <div>
+            <strong id="profileName">Usuário</strong>
+            <small id="profileRole">Cliente</small>
+          </div>
+        </div>
+        <nav id="sideMenu" class="side-menu"></nav>
+      </aside>
+
+      <section class="workspace">
+        <div id="dashboardHeader" class="workspace-header"></div>
+        <div id="workspaceContent"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <section id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <div>
+          <span id="modalEyebrow" class="eyebrow"></span>
+          <h2 id="modalTitle">Título</h2>
+        </div>
+        <button id="closeModalBtn" class="icon-btn" aria-label="Fechar">×</button>
+      </header>
+      <div id="modalBody" class="modal-body"></div>
+    </section>
+  </div>
+
+  <template id="newOrderTemplate">
+    <form id="orderForm" class="stack-lg">
+      <div class="stepper">
+        <span class="active">1. Rota</span>
+        <span>2. Mercadoria</span>
+        <span>3. Pessoas</span>
+        <span>4. Pagamento</span>
+      </div>
+
+      <section class="form-section">
+        <div class="section-title">
+          <div>
+            <span class="eyebrow">Rota</span>
+            <h3>Retirada e entrega</h3>
+          </div>
+        </div>
+        <div class="form-grid two-cols">
+          <label>Rua da retirada<input name="pickupStreet" required placeholder="Ex.: Av. Afonso Pena" /></label>
+          <label>Número<input name="pickupNumber" required inputmode="numeric" placeholder="1000" /></label>
+          <label>Bairro da retirada<select name="pickupNeighborhood" class="neighborhood-select"
+              required></select></label>
+          <label>Complemento<input name="pickupComplement" placeholder="Sala, loja, bloco..." /></label>
+          <label>Rua da entrega<input name="deliveryStreet" required placeholder="Ex.: Rua Padre Eustáquio" /></label>
+          <label>Número<input name="deliveryNumber" required inputmode="numeric" placeholder="250" /></label>
+          <label>Bairro da entrega<select name="deliveryNeighborhood" class="neighborhood-select"
+              required></select></label>
+          <label>Complemento<input name="deliveryComplement" placeholder="Casa, apartamento..." /></label>
+        </div>
+        <label>Observações da rota<textarea name="routeNotes" rows="2"
+            placeholder="Ponto de referência, portaria, restrições de acesso..."></textarea></label>
+      </section>
+
+      <section class="form-section">
+        <div class="section-title">
+          <div>
+            <span class="eyebrow">Mercadoria</span>
+            <h3>Características do volume</h3>
+          </div>
+        </div>
+        <div class="form-grid three-cols">
+          <label>Descrição<input name="itemDescription" required placeholder="Ex.: caixa com documentos" /></label>
+          <label>Categoria
+            <select name="category" required>
+              <option>Documentos</option>
+              <option>Alimentos</option>
+              <option>Roupas</option>
+              <option>Calçados</option>
+              <option>Eletrônicos</option>
+              <option>Medicamentos permitidos</option>
+              <option>Peças automotivas</option>
+              <option>Outros</option>
+            </select>
+          </label>
+          <label>Volumes<input name="packages" type="number" min="1" max="20" value="1" required /></label>
+          <label>Peso (kg)<input name="weight" type="number" min="0.1" max="500" step="0.1" value="1"
+              required /></label>
+          <label>Comprimento (cm)<input name="length" type="number" min="1" max="300" value="30" required /></label>
+          <label>Largura (cm)<input name="width" type="number" min="1" max="300" value="20" required /></label>
+          <label>Altura (cm)<input name="height" type="number" min="1" max="300" value="15" required /></label>
+          <label>Valor declarado (R$)<input name="declaredValue" type="number" min="0" step="0.01"
+              value="100" /></label>
+          <label>Tipo de veículo
+            <select name="vehicleType" required>
+              <option value="auto">Recomendação automática</option>
+              <option value="bike">Bicicleta</option>
+              <option value="motorcycle">Motocicleta</option>
+              <option value="car">Carro</option>
+              <option value="utility">Utilitário</option>
+              <option value="van">Van</option>
+            </select>
+          </label>
+        </div>
+        <div class="check-row">
+          <label class="check"><input name="fragile" type="checkbox" /> Mercadoria frágil</label>
+          <label class="check"><input name="perishable" type="checkbox" /> Produto perecível</label>
+          <label class="check"><input name="scheduled" type="checkbox" /> Agendar entrega</label>
+        </div>
+        <div id="scheduleFields" class="form-grid two-cols hidden">
+          <label>Data<input name="scheduleDate" type="date" /></label>
+          <label>Horário<input name="scheduleTime" type="time" /></label>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <div class="section-title">
+          <div>
+            <span class="eyebrow">Responsáveis</span>
+            <h3>Quem entrega e quem recebe</h3>
+          </div>
+        </div>
+        <div class="form-grid two-cols">
+          <label>Nome de quem entregará ao motorista<input name="pickupPerson" required
+              placeholder="Nome completo" /></label>
+          <label>Telefone da retirada<input name="pickupPhone" required placeholder="(31) 99999-9999" /></label>
+          <label>Nome de quem receberá<input name="receiverPerson" required placeholder="Nome completo" /></label>
+          <label>Telefone do destinatário<input name="receiverPhone" required placeholder="(31) 99999-9999" /></label>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <div class="section-title">
+          <div>
+            <span class="eyebrow">Pagamento</span>
+            <h3>Forma de pagamento</h3>
+          </div>
+        </div>
+        <div class="payment-options">
+          <label class="payment-card active"><input type="radio" name="paymentMethod" value="pix" checked />
+            <span>Pix<small>Confirmação simulada imediata</small></span></label>
+          <label class="payment-card"><input type="radio" name="paymentMethod" value="card" />
+            <span>Cartão<small>Ambiente de testes</small></span></label>
+        </div>
+        <div id="cardFields" class="form-grid two-cols hidden">
+          <label>Número do cartão<input name="cardNumber" inputmode="numeric" maxlength="19"
+              placeholder="4242 4242 4242 4242" /></label>
+          <label>Nome no cartão<input name="cardName" placeholder="NOME COMO NO CARTÃO" /></label>
+          <label>Validade<input name="cardExpiry" maxlength="5" placeholder="12/30" /></label>
+          <label>CVV<input name="cardCvv" inputmode="numeric" maxlength="4" placeholder="123" /></label>
+        </div>
+      </section>
+
+      <section class="quote-panel">
+        <div>
+          <span class="eyebrow">Estimativa</span>
+          <strong id="quoteTotal">R$ 0,00</strong>
+          <small id="quoteDetails">Selecione os bairros para calcular.</small>
+        </div>
+        <button id="recalculateBtn" type="button" class="btn btn-outline">Recalcular</button>
+      </section>
+
+      <label class="check legal-check"><input name="terms" type="checkbox" required /> Confirmo que a mercadoria é
+        permitida, foi descrita corretamente e aceito os termos do serviço.</label>
+      <button class="btn btn-primary btn-block btn-lg" type="submit">Confirmar e solicitar entrega</button>
+    </form>
+  </template>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
