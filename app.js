@@ -1,78 +1,53 @@
 'use strict';
 
+// ==========================================
+// 1. IMPORTAÇÕES DO FIREBASE
+// ==========================================
+import { auth, db } from './firebase-config.js';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+// ==========================================
+
 const STORAGE_KEY = 'bhEntregaMvpV1';
 const SESSION_KEY = 'bhEntregaSessionV1';
 
 const neighborhoods = {
-  'Centro': [-19.9191, -43.9386],
-  'Savassi': [-19.9383, -43.9346],
-  'Funcionários': [-19.9327, -43.9278],
-  'Lourdes': [-19.9294, -43.9444],
-  'Santo Agostinho': [-19.9235, -43.9503],
-  'Barro Preto': [-19.9209, -43.9564],
-  'Floresta': [-19.9162, -43.9235],
-  'Santa Tereza': [-19.9211, -43.9128],
-  'Sagrada Família': [-19.9015, -43.9172],
-  'Cidade Nova': [-19.8913, -43.9289],
-  'União': [-19.8897, -43.9188],
-  'Pampulha': [-19.8517, -43.9718],
-  'Ouro Preto': [-19.8707, -43.9916],
-  'Castelo': [-19.8784, -44.0007],
-  'Venda Nova': [-19.8158, -43.9542],
-  'Buritis': [-19.9740, -43.9684],
-  'Belvedere': [-19.9739, -43.9407],
-  'Mangabeiras': [-19.9524, -43.9162],
-  'Padre Eustáquio': [-19.9141, -43.9789],
-  'Carlos Prates': [-19.9122, -43.9638],
-  'Caiçara': [-19.9000, -43.9770],
-  'Barreiro': [-19.9797, -44.0151],
-  'Diamante': [-20.0003, -44.0193],
-  'Jardim América': [-19.9445, -43.9812],
+  'Centro': [-19.9191, -43.9386], 'Savassi': [-19.9383, -43.9346], 'Funcionários': [-19.9327, -43.9278],
+  'Lourdes': [-19.9294, -43.9444], 'Santo Agostinho': [-19.9235, -43.9503], 'Barro Preto': [-19.9209, -43.9564],
+  'Floresta': [-19.9162, -43.9235], 'Santa Tereza': [-19.9211, -43.9128], 'Sagrada Família': [-19.9015, -43.9172],
+  'Cidade Nova': [-19.8913, -43.9289], 'União': [-19.8897, -43.9188], 'Pampulha': [-19.8517, -43.9718],
+  'Ouro Preto': [-19.8707, -43.9916], 'Castelo': [-19.8784, -44.0007], 'Venda Nova': [-19.8158, -43.9542],
+  'Buritis': [-19.9740, -43.9684], 'Belvedere': [-19.9739, -43.9407], 'Mangabeiras': [-19.9524, -43.9162],
+  'Padre Eustáquio': [-19.9141, -43.9789], 'Carlos Prates': [-19.9122, -43.9638], 'Caiçara': [-19.9000, -43.9770],
+  'Barreiro': [-19.9797, -44.0151], 'Diamante': [-20.0003, -44.0193], 'Jardim América': [-19.9445, -43.9812],
   'Nova Suíça': [-19.9447, -43.9710]
 };
 
-const statusFlow = [
-  'payment_pending', 'searching', 'found', 'going_pickup', 'at_pickup',
-  'picked_up', 'in_transit', 'at_destination', 'delivered', 'completed'
-];
-
+const statusFlow = ['payment_pending', 'searching', 'found', 'going_pickup', 'at_pickup', 'picked_up', 'in_transit', 'at_destination', 'delivered', 'completed'];
 const statusLabels = {
-  payment_pending: 'Aguardando pagamento',
-  searching: 'Procurando entregador',
-  found: 'Entregador encontrado',
-  going_pickup: 'A caminho da retirada',
-  at_pickup: 'No local de retirada',
-  picked_up: 'Mercadoria retirada',
-  in_transit: 'Entrega em andamento',
-  at_destination: 'No local de entrega',
-  delivered: 'Mercadoria entregue',
-  completed: 'Entrega concluída',
-  cancelled: 'Entrega cancelada',
-  incident: 'Ocorrência registrada'
+  payment_pending: 'Aguardando pagamento', searching: 'Procurando entregador', found: 'Entregador encontrado',
+  going_pickup: 'A caminho da retirada', at_pickup: 'No local de retirada', picked_up: 'Mercadoria retirada',
+  in_transit: 'Entrega em andamento', at_destination: 'No local de entrega', delivered: 'Mercadoria entregue',
+  completed: 'Entrega concluída', cancelled: 'Entrega cancelada', incident: 'Ocorrência registrada'
 };
 
 const menuConfig = {
-  client: [
-    ['dashboard', '⌂', 'Visão geral'],
-    ['new-order', '＋', 'Nova entrega'],
-    ['orders', '▦', 'Meus pedidos'],
-    ['profile', '◉', 'Meu perfil']
-  ],
-  courier: [
-    ['dashboard', '⌂', 'Visão geral'],
-    ['available', '⚡', 'Entregas disponíveis'],
-    ['active', '➜', 'Entrega atual'],
-    ['earnings', 'R$', 'Meus ganhos'],
-    ['profile', '◉', 'Meu perfil']
-  ],
-  master: [
-    ['dashboard', '⌂', 'Painel Master'],
-    ['orders', '▦', 'Todas as entregas'],
-    ['couriers', '✓', 'Entregadores'],
-    ['finance', 'R$', 'Financeiro'],
-    ['settings', '⚙', 'Tarifas e ajustes'],
-    ['profile', '◉', 'Meu perfil'] // Adicionado para o Master trocar senha
-  ]
+  client: [['dashboard', '', 'Visão geral'], ['new-order', '＋', 'Nova entrega'], ['orders', '', 'Meus pedidos'], ['profile', '', 'Meu perfil']],
+  courier: [['dashboard', '⌂', 'Visão geral'], ['available', '⚡', 'Entregas disponíveis'], ['active', '➜', 'Entrega atual'], ['earnings', 'R$', 'Meus ganhos'], ['profile', '◉', 'Meu perfil']],
+  master: [['dashboard', '', 'Painel Master'], ['orders', '▦', 'Todas as entregas'], ['couriers', '✓', 'Entregadores'], ['finance', 'R$', 'Financeiro'], ['settings', '⚙', 'Tarifas e ajustes'], ['profile', '◉', 'Meu perfil']]
 };
 
 let state = loadState();
@@ -83,75 +58,85 @@ let activeMap = null;
 let deferredInstallPrompt = null;
 
 const els = {
-  landingView: document.getElementById('landingView'),
-  appView: document.getElementById('appView'),
-  loginForm: document.getElementById('loginForm'),
-  loginTitle: document.getElementById('loginTitle'),
-  loginEmail: document.getElementById('loginEmail'),
-  loginPassword: document.getElementById('loginPassword'),
-  fillDemoBtn: document.getElementById('fillDemoBtn'),
+  landingView: document.getElementById('landingView'), appView: document.getElementById('appView'),
+  loginForm: document.getElementById('loginForm'), loginTitle: document.getElementById('loginTitle'),
+  loginEmail: document.getElementById('loginEmail'), loginPassword: document.getElementById('loginPassword'),
   openRegisterBtn: document.getElementById('openRegisterBtn'),
-  logoutBtn: document.getElementById('logoutBtn'),
-  installBtn: document.getElementById('installBtn'),
-  profileAvatar: document.getElementById('profileAvatar'),
-  profileName: document.getElementById('profileName'),
-  profileRole: document.getElementById('profileRole'),
-  sideMenu: document.getElementById('sideMenu'),
-  dashboardHeader: document.getElementById('dashboardHeader'),
-  workspaceContent: document.getElementById('workspaceContent'),
-  modalBackdrop: document.getElementById('modalBackdrop'),
-  modalTitle: document.getElementById('modalTitle'),
-  modalEyebrow: document.getElementById('modalEyebrow'),
-  modalBody: document.getElementById('modalBody'),
-  closeModalBtn: document.getElementById('closeModalBtn'),
-  toast: document.getElementById('toast')
+  logoutBtn: document.getElementById('logoutBtn'), installBtn: document.getElementById('installBtn'),
+  profileAvatar: document.getElementById('profileAvatar'), profileName: document.getElementById('profileName'),
+  profileRole: document.getElementById('profileRole'), sideMenu: document.getElementById('sideMenu'),
+  dashboardHeader: document.getElementById('dashboardHeader'), workspaceContent: document.getElementById('workspaceContent'),
+  modalBackdrop: document.getElementById('modalBackdrop'), modalTitle: document.getElementById('modalTitle'),
+  modalEyebrow: document.getElementById('modalEyebrow'), modalBody: document.getElementById('modalBody'),
+  closeModalBtn: document.getElementById('closeModalBtn'), toast: document.getElementById('toast')
 };
 
+// ==========================================
+// 2. ESTADO PADRÃO (SEM USUÁRIOS DEMO)
+// ==========================================
 function defaultState() {
   return {
     settings: {
       baseFee: 12, kmRate: 2.4, serviceFee: 3.5, fragileFee: 4.5,
       extraPackageFee: 1.5, roadFactor: 1.35, platformCommission: 0.18
     },
-    clients: [
-      { id: 'cli-1', role: 'client', name: 'Cliente Demonstração', email: 'cliente@demo.com', password: '123456', phone: '(31) 99999-1000', active: true }
-    ],
-    couriers: [
-      { id: 'cou-1', role: 'courier', name: 'Carlos Entregador', email: 'entregador@demo.com', password: '123456', phone: '(31) 99999-2000', approved: true, online: true, vehicle: 'Motocicleta', plate: 'ABC1D23', rating: 4.9, balance: 84.2 }
-    ],
-    masters: [
-      { id: 'mas-1', role: 'master', name: 'Administrador Master', email: 'master@bhentrega.com', password: 'Admin123', active: true }
-    ],
-    orders: [
-      {
-        id: 'BH-2026-000001', clientId: 'cli-1', courierId: 'cou-1',
-        createdAt: new Date(Date.now() - 55 * 60000).toISOString(),
-        pickup: { street: 'Av. Afonso Pena', number: '1500', neighborhood: 'Centro', complement: '' },
-        delivery: { street: 'Rua Pernambuco', number: '900', neighborhood: 'Savassi', complement: 'Sala 302' },
-        pickupPerson: 'Mariana Costa', pickupPhone: '(31) 99999-3000',
-        receiverPerson: 'Paulo Lima', receiverPhone: '(31) 99999-4000',
-        item: { description: 'Documentos empresariais', category: 'Documentos', packages: 1, weight: 0.8, length: 30, width: 22, height: 4, fragile: false, declaredValue: 250 },
-        vehicleType: 'motorcycle', distanceKm: 4.1, price: 25.34, paymentMethod: 'pix', paymentStatus: 'paid', status: 'in_transit',
-        pickupCode: '3814', deliveryCode: '7629', scheduledAt: null, notes: 'Entregar na recepção.',
-        history: [
-          { status: 'searching', at: new Date(Date.now() - 52 * 60000).toISOString() },
-          { status: 'found', at: new Date(Date.now() - 48 * 60000).toISOString() },
-          { status: 'going_pickup', at: new Date(Date.now() - 42 * 60000).toISOString() },
-          { status: 'at_pickup', at: new Date(Date.now() - 27 * 60000).toISOString() },
-          { status: 'picked_up', at: new Date(Date.now() - 21 * 60000).toISOString() },
-          { status: 'in_transit', at: new Date(Date.now() - 18 * 60000).toISOString() }
-        ]
-      }
-    ]
+    clients: [],
+    couriers: [],
+    masters: [],
+    orders: []
   };
+}
+// ==========================================
+
+// ==========================================
+// 3. GERENCIAMENTO DE ESTADO COM FIREBASE
+// ==========================================
+async function loadStateFromFirebase() {
+  try {
+    const settingsDoc = await getDoc(doc(db, "config", "settings"));
+    if (settingsDoc.exists()) state.settings = { ...state.settings, ...settingsDoc.data() };
+
+    const ordersSnap = await getDocs(collection(db, "orders"));
+    state.orders = ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Se houver sessão, busca os dados do usuário no Firestore
+    if (session && session.userId) {
+      const userDoc = await getDoc(doc(db, "users", session.userId));
+      if (userDoc.exists()) {
+        state.currentUser = { id: session.userId, ...userDoc.data() };
+      }
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.warn("Usando dados locais (offline ou sem permissão):", error);
+  }
+}
+
+async function saveStateToFirebase() {
+  try {
+    await setDoc(doc(db, "config", "settings"), state.settings, { merge: true });
+    for (const order of state.orders) {
+      const { id, ...orderData } = order;
+      await setDoc(doc(db, "orders", id), orderData, { merge: true });
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.error("Erro ao salvar no Firebase:", error);
+    notify('Erro de conexão com o banco de dados.', 'error');
+  }
 }
 
 function loadState() {
-  try { const saved = localStorage.getItem(STORAGE_KEY); return saved ? JSON.parse(saved) : defaultState(); }
-  catch { return defaultState(); }
+  const saved = localStorage.getItem(STORAGE_KEY);
+  state = saved ? JSON.parse(saved) : defaultState();
+  loadStateFromFirebase();
+  return state;
 }
 
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveState() {
+  saveStateToFirebase();
+}
 
 function loadSession() {
   try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || null; }
@@ -165,10 +150,12 @@ function saveSession(value) {
 }
 
 function getCurrentUser() {
+  if (state.currentUser) return state.currentUser;
   if (!session) return null;
   const collection = session.role === 'client' ? state.clients : session.role === 'courier' ? state.couriers : state.masters;
   return collection.find(u => u.id === session.userId) || null;
 }
+// ==========================================
 
 function escapeHTML(value = '') {
   return String(value).replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
@@ -213,11 +200,6 @@ function setLoginRole(role) {
   els.loginEmail.value = '';
   els.loginPassword.value = '';
   els.openRegisterBtn.classList.toggle('hidden', role === 'master');
-}
-
-function findUserByCredentials(role, email, password) {
-  const collection = role === 'client' ? state.clients : role === 'courier' ? state.couriers : state.masters;
-  return collection.find(user => user.email.toLowerCase() === email.toLowerCase() && user.password === password);
 }
 
 function enterApp() {
@@ -304,7 +286,7 @@ function renderClientPage() {
 
   if (currentPage === 'profile') {
     const user = getCurrentUser();
-    els.dashboardHeader.innerHTML = headerHTML('Minha conta', 'Perfil do cliente', 'Atualize seus dados básicos e senha de acesso.');
+    els.dashboardHeader.innerHTML = headerHTML('Minha conta', 'Perfil do cliente', 'Atualize seus dados básicos.');
     els.workspaceContent.innerHTML = profileFormHTML(user, false);
     return;
   }
@@ -321,7 +303,7 @@ function renderClientPage() {
     <div class="stats-grid">
       ${statCard('Entregas ativas', active.length, 'Acompanhe em tempo real')}
       ${statCard('Total de pedidos', orders.length, 'Histórico completo')}
-      ${statCard('Valor utilizado', formatBRL(totalSpent), 'Pagamentos demonstrativos')}
+      ${statCard('Valor utilizado', formatBRL(totalSpent), 'Pagamentos')}
       ${statCard('Região', 'Belo Horizonte', 'Cobertura configurável')}
     </div>
     <div class="content-grid">
@@ -334,8 +316,7 @@ function renderClientPage() {
         <div class="quick-actions">
           <button class="quick-action" data-action="new-order"><strong>Nova entrega</strong><small>Calcule o preço e solicite a coleta.</small></button>
           <button class="quick-action" data-page="orders"><strong>Rastrear pedido</strong><small>Veja o status e a rota estimada.</small></button>
-          <button class="quick-action" data-page="profile"><strong>Meu cadastro</strong><small>Telefone, senha e informações da conta.</small></button>
-          <button class="quick-action" data-action="support"><strong>Suporte</strong><small>Abra uma solicitação demonstrativa.</small></button>
+          <button class="quick-action" data-page="profile"><strong>Meu cadastro</strong><small>Telefone e informações da conta.</small></button>
         </div>
       </aside>
     </div>
@@ -351,7 +332,7 @@ function renderCourierPage() {
   const gross = completed.reduce((sum, o) => sum + o.price * (1 - state.settings.platformCommission), 0);
 
   if (currentPage === 'profile') {
-    els.dashboardHeader.innerHTML = headerHTML('Minha conta', 'Perfil do entregador', 'Dados de contato, veículo e senha de acesso.');
+    els.dashboardHeader.innerHTML = headerHTML('Minha conta', 'Perfil do entregador', 'Dados de contato, veículo.');
     els.workspaceContent.innerHTML = profileFormHTML(courier, true);
     return;
   }
@@ -361,7 +342,7 @@ function renderCourierPage() {
     return;
   }
   if (currentPage === 'active') {
-    els.dashboardHeader.innerHTML = headerHTML('Rota atual', 'Entrega em andamento', 'Atualize cada etapa para que o cliente acompanhe o serviço.');
+    els.dashboardHeader.innerHTML = headerHTML('Rota atual', 'Entrega em andamento', 'Atualize cada etapa para que o cliente acompanhe.');
     els.workspaceContent.innerHTML = active ? `<section class="panel"><div class="order-list">${orderCard(active, { track: true, advance: true })}</div></section>` : `<section class="panel"><div class="empty-state"><strong>Sem entrega ativa</strong>Aceite um pedido disponível para iniciar.</div></section>`;
     return;
   }
@@ -369,37 +350,27 @@ function renderCourierPage() {
     els.dashboardHeader.innerHTML = headerHTML('Financeiro', 'Meus ganhos', 'Resumo demonstrativo de entregas e repasses.');
     els.workspaceContent.innerHTML = `
       <div class="stats-grid">
-        ${statCard('Saldo disponível', formatBRL(courier.balance + gross), 'Saque via Pix')}
+        ${statCard('Saldo disponível', formatBRL((courier.balance || 0) + gross), 'Saque via Pix')}
         ${statCard('Entregas concluídas', completed.length, 'Histórico do profissional')}
         ${statCard('Comissão da plataforma', `${Math.round(state.settings.platformCommission * 100)}%`, 'Configurada pelo Master')}
-        ${statCard('Avaliação', `${courier.rating.toFixed(1)} ★`, 'Média demonstrativa')}
       </div>
       <section class="panel"><div class="panel-header"><div><h3>Histórico</h3><p>Valores líquidos estimados.</p></div><button class="btn btn-primary" data-action="withdraw">Solicitar saque</button></div>${ordersTable(mine, true)}</section>
     `;
     return;
   }
 
-  els.dashboardHeader.innerHTML = headerHTML('Entregador', `Olá, ${escapeHTML(courier.name.split(' ')[0])}`, 'Fique online, aceite pedidos e atualize as etapas da entrega.', `<button class="btn ${courier.online ? 'btn-success' : 'btn-danger'}" data-action="toggle-online">${courier.online ? '● Online' : '○ Offline'}</button>`);
+  els.dashboardHeader.innerHTML = headerHTML('Entregador', `Olá, ${escapeHTML(courier.name.split(' ')[0])}`, 'Fique online, aceite pedidos e atualize as etapas.', `<button class="btn ${courier.online ? 'btn-success' : 'btn-danger'}" data-action="toggle-online">${courier.online ? '● Online' : '○ Offline'}</button>`);
   els.workspaceContent.innerHTML = `
     <div class="stats-grid">
       ${statCard('Disponíveis', available.length, 'Pedidos aguardando aceite')}
       ${statCard('Entrega ativa', active ? 1 : 0, active ? statusLabels[active.status] : 'Nenhuma no momento')}
-      ${statCard('Saldo estimado', formatBRL(courier.balance + gross), 'Antes do saque')}
-      ${statCard('Avaliação', `${courier.rating.toFixed(1)} ★`, 'Cadastro aprovado')}
+      ${statCard('Saldo estimado', formatBRL((courier.balance || 0) + gross), 'Antes do saque')}
     </div>
     <div class="content-grid">
       <section class="panel">
         <div class="panel-header"><div><h3>${active ? 'Entrega atual' : 'Próximas oportunidades'}</h3><p>${active ? 'Continue atualizando a rota.' : 'Pedidos disponíveis para aceite.'}</p></div></div>
         <div class="order-list">${active ? orderCard(active, { track: true, advance: true }) : available.length ? available.slice(0, 3).map(o => orderCard(o, { accept: true })).join('') : `<div class="empty-state"><strong>Nenhum pedido agora</strong>Mantenha-se online para receber novas solicitações.</div>`}</div>
       </section>
-      <aside class="panel">
-        <div class="panel-header"><div><h3>Status profissional</h3><p>Informações verificadas.</p></div></div>
-        <div class="stack">
-          <div class="route-point"><div><strong>Cadastro ${courier.approved ? 'aprovado' : 'pendente'}</strong><small>Validação pelo painel Master</small></div></div>
-          <div class="route-point"><div><strong>${escapeHTML(courier.vehicle)}</strong><small>Placa ${escapeHTML(courier.plate)}</small></div></div>
-          <div class="route-point delivery"><div><strong>${courier.online ? 'Disponível para entregas' : 'Indisponível'}</strong><small>Altere pelo botão no topo</small></div></div>
-        </div>
-      </aside>
     </div>
   `;
 }
@@ -411,46 +382,43 @@ function renderMasterPage() {
 
   if (currentPage === 'profile') {
     const user = getCurrentUser();
-    els.dashboardHeader.innerHTML = headerHTML('Minha conta', 'Perfil do Administrador', 'Atualize seus dados e senha de acesso.');
+    els.dashboardHeader.innerHTML = headerHTML('Minha conta', 'Perfil do Administrador', 'Atualize seus dados.');
     els.workspaceContent.innerHTML = profileFormHTML(user, false);
     return;
   }
 
   if (currentPage === 'orders') {
-    els.dashboardHeader.innerHTML = headerHTML('Operação', 'Todas as entregas', 'Acompanhe pedidos, pagamentos, entregadores e status.');
+    els.dashboardHeader.innerHTML = headerHTML('Operação', 'Todas as entregas', 'Acompanhe pedidos, pagamentos e status.');
     els.workspaceContent.innerHTML = `<section class="panel">${ordersTable(orders, false, true)}</section>`;
     return;
   }
   if (currentPage === 'couriers') {
-    els.dashboardHeader.innerHTML = headerHTML('Cadastros', 'Entregadores', 'Aprove, suspenda e acompanhe profissionais cadastrados.');
+    els.dashboardHeader.innerHTML = headerHTML('Cadastros', 'Entregadores', 'Aprove e acompanhe profissionais.');
     els.workspaceContent.innerHTML = `<section class="panel">${couriersTable()}</section>`;
     return;
   }
   if (currentPage === 'finance') {
-    els.dashboardHeader.innerHTML = headerHTML('Financeiro', 'Movimentação da plataforma', 'Valores do ambiente demonstrativo.');
+    els.dashboardHeader.innerHTML = headerHTML('Financeiro', 'Movimentação da plataforma', 'Valores do ambiente.');
     els.workspaceContent.innerHTML = `
       <div class="stats-grid">
         ${statCard('Volume processado', formatBRL(paidRevenue), 'Pedidos pagos')}
         ${statCard('Receita estimada', formatBRL(platformRevenue), `${Math.round(state.settings.platformCommission * 100)}% de comissão`)}
-        ${statCard('Repasse estimado', formatBRL(paidRevenue - platformRevenue), 'Destinado aos entregadores')}
-        ${statCard('Pagamentos pendentes', orders.filter(o => o.paymentStatus !== 'paid').length, 'Aguardando confirmação')}
       </div>
       <section class="panel">${ordersTable(orders, false, true)}</section>
     `;
     return;
   }
   if (currentPage === 'settings') {
-    els.dashboardHeader.innerHTML = headerHTML('Configuração', 'Tarifas e ajustes', 'Altere os componentes usados pelo cálculo demonstrativo.');
+    els.dashboardHeader.innerHTML = headerHTML('Configuração', 'Tarifas e ajustes', 'Altere os componentes do cálculo.');
     els.workspaceContent.innerHTML = settingsHTML();
     return;
   }
 
   const active = activeOrders(orders);
-  els.dashboardHeader.innerHTML = headerHTML('Administração', 'Painel Master', 'Controle operacional, financeiro e cadastral da plataforma.', `<button class="btn btn-outline" data-action="reset-demo">Restaurar demonstração</button>`);
+  els.dashboardHeader.innerHTML = headerHTML('Administração', 'Painel Master', 'Controle operacional, financeiro e cadastral.', `<button class="btn btn-outline" data-action="reset-demo">Restaurar demonstração</button>`);
   els.workspaceContent.innerHTML = `
     <div class="stats-grid">
       ${statCard('Entregas ativas', active.length, 'Em toda a operação')}
-      ${statCard('Clientes', state.clients.length, 'Contas cadastradas')}
       ${statCard('Entregadores', state.couriers.length, `${state.couriers.filter(c => c.approved).length} aprovados`)}
       ${statCard('Receita estimada', formatBRL(platformRevenue), 'Comissão da plataforma')}
     </div>
@@ -459,15 +427,6 @@ function renderMasterPage() {
         <div class="panel-header"><div><h3>Operação recente</h3><p>Pedidos mais recentes da plataforma.</p></div><button class="btn btn-ghost" data-page="orders">Ver todos</button></div>
         ${ordersTable(orders.slice(0, 6), false, true)}
       </section>
-      <aside class="panel">
-        <div class="panel-header"><div><h3>Resumo do sistema</h3><p>Indicadores operacionais.</p></div></div>
-        <div class="timeline">
-          ${timelineItem('Pagamentos', `${orders.filter(o => o.paymentStatus === 'paid').length} confirmados`, true)}
-          ${timelineItem('Em busca de entregador', `${orders.filter(o => o.status === 'searching').length} pedidos`, false, true)}
-          ${timelineItem('Profissionais online', `${state.couriers.filter(c => c.online && c.approved).length} entregadores`, false)}
-          ${timelineItem('Finalizadas', `${orders.filter(o => o.status === 'completed').length} entregas`, false)}
-        </div>
-      </aside>
     </div>
   `;
 }
@@ -481,7 +440,7 @@ function timelineItem(title, subtitle, done = false, current = false) {
 }
 
 function emptyOrders() {
-  return `<div class="empty-state"><strong>Nenhuma entrega cadastrada</strong>Use “Nova entrega” para criar o primeiro pedido.</div>`;
+  return `<div class="empty-state"><strong>Nenhuma entrega cadastrada</strong>Use "Nova entrega" para criar o primeiro pedido.</div>`;
 }
 
 function ordersTable(orders, netValue = false, admin = false) {
@@ -506,14 +465,13 @@ function ordersTable(orders, netValue = false, admin = false) {
 function couriersTable() {
   return `
     <div class="table-wrap"><table>
-      <thead><tr><th>Profissional</th><th>Veículo</th><th>Situação</th><th>Disponibilidade</th><th>Avaliação</th><th>Ação</th></tr></thead>
+      <thead><tr><th>Profissional</th><th>Veículo</th><th>Situação</th><th>Disponibilidade</th><th>Ação</th></tr></thead>
       <tbody>${state.couriers.map(c => `
         <tr>
           <td><strong>${escapeHTML(c.name)}</strong><br><small>${escapeHTML(c.email)}</small></td>
           <td>${escapeHTML(c.vehicle)}<br><small>${escapeHTML(c.plate)}</small></td>
           <td>${c.approved ? '<span class="pill status-completed status-pill">Aprovado</span>' : '<span class="pill status-searching status-pill">Pendente</span>'}</td>
           <td>${c.online ? 'Online' : 'Offline'}</td>
-          <td>${Number(c.rating || 0).toFixed(1)} ★</td>
           <td><button class="btn ${c.approved ? 'btn-danger' : 'btn-success'}" data-action="toggle-approval" data-id="${c.id}">${c.approved ? 'Suspender' : 'Aprovar'}</button></td>
         </tr>
       `).join('')}</tbody>
@@ -533,7 +491,6 @@ function settingsHTML() {
         ${configInput('Volume adicional', 'extraPackageFee', s.extraPackageFee, 'R$')}
         ${configInput('Comissão', 'platformCommission', s.platformCommission * 100, '%')}
       </div>
-      <div class="demo-note"><strong>Fórmula:</strong> taxa base + distância × preço/km + adicionais de peso, volume, veículo, fragilidade e serviço.</div>
       <button class="btn btn-primary" type="submit">Salvar tarifas</button>
     </form>
   `;
@@ -548,20 +505,10 @@ function profileFormHTML(user, courier) {
     <form id="profileForm" class="panel stack-lg">
       <div class="form-grid two-cols">
         <label>Nome completo<input name="name" value="${escapeHTML(user.name)}" required /></label>
-        <label>E-mail<input name="email" type="email" value="${escapeHTML(user.email)}" required /></label>
+        <label>E-mail<input name="email" type="email" value="${escapeHTML(user.email)}" disabled /></label>
         <label>Telefone<input name="phone" value="${escapeHTML(user.phone || '')}" /></label>
-        ${courier ? `<label>Veículo<input name="vehicle" value="${escapeHTML(user.vehicle || '')}" required /></label><label>Placa<input name="plate" value="${escapeHTML(user.plate || '')}" required /></label>` : '<label>Tipo de conta<select name="accountType"><option>Pessoa física</option><option>Empresa</option></select></label>'}
+        ${courier ? `<label>Veículo<input name="vehicle" value="${escapeHTML(user.vehicle || '')}" required /></label><label>Placa<input name="plate" value="${escapeHTML(user.plate || '')}" required /></label>` : ''}
       </div>
-      
-      <div class="form-grid two-cols" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
-        <label>Nova Senha <small class="muted">(deixe em branco para manter a atual)</small>
-          <input name="newPassword" type="password" minlength="6" placeholder="••••••" />
-        </label>
-        <label>Confirmar Nova Senha
-          <input name="confirmNewPassword" type="password" minlength="6" placeholder="••••••" />
-        </label>
-      </div>
-
       <button class="btn btn-primary" type="submit" style="margin-top: 1.5rem;">Salvar alterações</button>
     </form>
   `;
@@ -680,84 +627,39 @@ function validateVehicleCompatibility(quote, weight, volumeM3) {
   return rank[quote.vehicle] >= rank[recommendVehicle(weight, volumeM3)];
 }
 
-// --- CORREÇÃO PRINCIPAL AQUI ---
 function handleOrderSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const quote = calculateQuote(form);
 
-  if (!quote.distanceKm) {
-    return notify('⚠️ Selecione os bairros de retirada e entrega.', 'error');
-  }
-
+  if (!quote.distanceKm) return notify('⚠️ Selecione os bairros de retirada e entrega.', 'error');
   const weight = Number(form.elements.weight.value);
-  if (!validateVehicleCompatibility(quote, weight, quote.volumeM3)) {
-    return notify(`⚠️ Veículo insuficiente. Recomendação: ${vehicleLabel(quote.recommended)}.`, 'error');
-  }
+  if (!validateVehicleCompatibility(quote, weight, quote.volumeM3)) return notify(`⚠️ Veículo insuficiente. Recomendação: ${vehicleLabel(quote.recommended)}.`, 'error');
 
   const data = new FormData(form);
   const paymentMethod = data.get('paymentMethod');
 
   const order = {
-    id: nextOrderId(),
-    clientId: session.userId,
-    courierId: null,
-    createdAt: new Date().toISOString(),
-    pickup: {
-      street: data.get('pickupStreet'),
-      number: data.get('pickupNumber'),
-      neighborhood: data.get('pickupNeighborhood'),
-      complement: data.get('pickupComplement')
-    },
-    delivery: {
-      street: data.get('deliveryStreet'),
-      number: data.get('deliveryNumber'),
-      neighborhood: data.get('deliveryNeighborhood'),
-      complement: data.get('deliveryComplement')
-    },
-    pickupPerson: data.get('pickupPerson'),
-    pickupPhone: data.get('pickupPhone'),
-    receiverPerson: data.get('receiverPerson'),
-    receiverPhone: data.get('receiverPhone'),
-    item: {
-      description: data.get('itemDescription'),
-      category: data.get('category'),
-      packages: Number(data.get('packages')),
-      weight,
-      length: Number(data.get('length')),
-      width: Number(data.get('width')),
-      height: Number(data.get('height')),
-      fragile: data.get('fragile') === 'on',
-      perishable: data.get('perishable') === 'on',
-      declaredValue: Number(data.get('declaredValue') || 0)
-    },
-    vehicleType: quote.vehicle,
-    distanceKm: Number(quote.distanceKm.toFixed(1)),
-    price: Number(quote.total.toFixed(2)),
-    paymentMethod,
-    paymentStatus: paymentMethod === 'card' ? 'paid' : 'pending',
-    status: paymentMethod === 'card' ? 'searching' : 'payment_pending',
-    pickupCode: randomCode(),
-    deliveryCode: randomCode(),
-    scheduledAt: data.get('scheduled') === 'on' ? `${data.get('scheduleDate')}T${data.get('scheduleTime')}` : null,
-    notes: data.get('routeNotes'),
-    history: [{ status: paymentMethod === 'card' ? 'searching' : 'payment_pending', at: new Date().toISOString() }]
+    id: nextOrderId(), clientId: session.userId, courierId: null, createdAt: new Date().toISOString(),
+    pickup: { street: data.get('pickupStreet'), number: data.get('pickupNumber'), neighborhood: data.get('pickupNeighborhood'), complement: data.get('pickupComplement') },
+    delivery: { street: data.get('deliveryStreet'), number: data.get('deliveryNumber'), neighborhood: data.get('deliveryNeighborhood'), complement: data.get('deliveryComplement') },
+    pickupPerson: data.get('pickupPerson'), pickupPhone: data.get('pickupPhone'), receiverPerson: data.get('receiverPerson'), receiverPhone: data.get('receiverPhone'),
+    item: { description: data.get('itemDescription'), category: data.get('category'), packages: Number(data.get('packages')), weight, length: Number(data.get('length')), width: Number(data.get('width')), height: Number(data.get('height')), fragile: data.get('fragile') === 'on', perishable: data.get('perishable') === 'on', declaredValue: Number(data.get('declaredValue') || 0) },
+    vehicleType: quote.vehicle, distanceKm: Number(quote.distanceKm.toFixed(1)), price: Number(quote.total.toFixed(2)),
+    paymentMethod, paymentStatus: paymentMethod === 'card' ? 'paid' : 'pending', status: paymentMethod === 'card' ? 'searching' : 'payment_pending',
+    pickupCode: randomCode(), deliveryCode: randomCode(), scheduledAt: data.get('scheduled') === 'on' ? `${data.get('scheduleDate')}T${data.get('scheduleTime')}` : null,
+    notes: data.get('routeNotes'), history: [{ status: paymentMethod === 'card' ? 'searching' : 'payment_pending', at: new Date().toISOString() }]
   };
 
-  // 1. Salva o pedido no estado e no localStorage
   state.orders.push(order);
   saveState();
 
-  // 2. SEMPRE atualiza a interface e vai para a aba "Meus Pedidos"
   closeModal();
   notify(`✅ Pedido ${order.id} criado com sucesso!`, 'success');
   currentPage = 'orders';
   renderPage();
 
-  // 3. Se for Pix, abre o modal de pagamento POR CIMA da tela de pedidos
-  if (paymentMethod === 'pix') {
-    setTimeout(() => openPixPayment(order), 300);
-  }
+  if (paymentMethod === 'pix') setTimeout(() => openPixPayment(order), 300);
 }
 
 function nextOrderId() {
@@ -777,9 +679,9 @@ function openPixPayment(order) {
         <span class="muted small">QR Code ilustrativo — não realize pagamento real.</span>
       </div>
       <div class="stack-lg">
-        <div><span class="eyebrow">Pedido</span><h3>${escapeHTML(order.id)}</h3><p class="muted">Após a confirmação demonstrativa, o pedido ficará disponível para entregadores.</p></div>
+        <div><span class="eyebrow">Pedido</span><h3>${escapeHTML(order.id)}</h3><p class="muted">Após a confirmação, o pedido ficará disponível.</p></div>
         <label>Pix copia e cola<textarea readonly rows="4">PIX-DEMONSTRACAO-${order.id}-${order.price.toFixed(2)}</textarea></label>
-        <button class="btn btn-primary btn-lg" data-action="confirm-pix" data-id="${order.id}">Confirmar pagamento demonstrativo</button>
+        <button class="btn btn-primary btn-lg" data-action="confirm-pix" data-id="${order.id}">Confirmar pagamento</button>
       </div>
     </div>
   `);
@@ -811,26 +713,19 @@ function openOrderDetails(orderId) {
     <div class="tracking-grid">
       <div class="stack-lg">
         <section class="form-section route-summary">
-          <div class="route-point"><div><strong>${escapeHTML(order.pickup.street)}, ${escapeHTML(order.pickup.number)}</strong><small>${escapeHTML(order.pickup.neighborhood)} · Retirada por ${escapeHTML(order.pickupPerson)}</small></div></div>
-          <div class="route-point delivery"><div><strong>${escapeHTML(order.delivery.street)}, ${escapeHTML(order.delivery.number)}</strong><small>${escapeHTML(order.delivery.neighborhood)} · Recebimento por ${escapeHTML(order.receiverPerson)}</small></div></div>
+          <div class="route-point"><div><strong>${escapeHTML(order.pickup.street)}, ${escapeHTML(order.pickup.number)}</strong><small>${escapeHTML(order.pickup.neighborhood)}</small></div></div>
+          <div class="route-point delivery"><div><strong>${escapeHTML(order.delivery.street)}, ${escapeHTML(order.delivery.number)}</strong><small>${escapeHTML(order.delivery.neighborhood)}</small></div></div>
         </section>
         <section class="form-section">
           <div class="section-title"><span class="eyebrow">Mercadoria</span><h3>${escapeHTML(order.item.description)}</h3></div>
-          <div class="order-meta"><span class="pill">${escapeHTML(order.item.category)}</span><span class="pill">${order.item.weight} kg</span><span class="pill">${order.item.packages} volume(s)</span><span class="pill">${order.item.length}×${order.item.width}×${order.item.height} cm</span></div>
-        </section>
-        <section class="form-section">
-          <div class="section-title"><span class="eyebrow">Pagamento</span><h3>${formatBRL(order.price)}</h3></div>
-          <p>${order.paymentMethod === 'pix' ? 'Pix' : 'Cartão'} · ${order.paymentStatus === 'paid' ? 'Confirmado' : 'Pendente'}</p>
-          <p class="muted">Distância estimada: ${order.distanceKm.toFixed(1)} km · ${vehicleLabel(order.vehicleType)}</p>
+          <div class="order-meta"><span class="pill">${escapeHTML(order.item.category)}</span><span class="pill">${order.item.weight} kg</span><span class="pill">${order.item.packages} volume(s)</span></div>
         </section>
       </div>
       <aside class="stack-lg">
         <section class="form-section">
           <span class="eyebrow">Status</span><h3>${statusLabels[order.status]}</h3>
-          <p class="muted">${courier ? `Entregador: ${escapeHTML(courier.name)} · ${escapeHTML(courier.vehicle)} · ${escapeHTML(courier.plate)}` : 'Aguardando atribuição de entregador.'}</p>
+          <p class="muted">${courier ? `Entregador: ${escapeHTML(courier.name)}` : 'Aguardando atribuição.'}</p>
         </section>
-        <div class="code-box"><small>Código da retirada</small><strong>${order.pickupCode}</strong></div>
-        <div class="code-box"><small>Código da entrega</small><strong>${order.deliveryCode}</strong></div>
         ${order.paymentStatus !== 'paid' ? `<button class="btn btn-primary" data-action="pay" data-id="${order.id}">Realizar pagamento</button>` : ''}
         ${!['payment_pending', 'cancelled'].includes(order.status) ? `<button class="btn btn-outline" data-action="track" data-id="${order.id}">Abrir rastreamento</button>` : ''}
       </aside>
@@ -846,14 +741,9 @@ function openTracking(orderId) {
     <div class="tracking-grid">
       <div>
         <div id="trackingMap" class="map"><div class="map-fallback">Carregando mapa...</div></div>
-        <div class="route-summary form-section" style="margin-top:14px">
-          <div class="route-point"><div><strong>${escapeHTML(order.pickup.street)}, ${escapeHTML(order.pickup.number)}</strong><small>${escapeHTML(order.pickup.neighborhood)}</small></div></div>
-          <div class="route-point delivery"><div><strong>${escapeHTML(order.delivery.street)}, ${escapeHTML(order.delivery.number)}</strong><small>${escapeHTML(order.delivery.neighborhood)}</small></div></div>
-        </div>
       </div>
       <aside class="form-section">
         <span class="eyebrow">Status atual</span><h3>${statusLabels[order.status]}</h3>
-        <p class="muted">Distância estimada: ${order.distanceKm.toFixed(1)} km</p>
         <div class="timeline">
           ${statusFlow.slice(1).map((status, index) => {
     const absolute = index + 1;
@@ -872,7 +762,7 @@ function initTrackingMap(order) {
   const start = neighborhoods[order.pickup.neighborhood];
   const end = neighborhoods[order.delivery.neighborhood];
   if (!window.L || !start || !end) {
-    container.innerHTML = `<div class="map-fallback"><div><strong>Mapa indisponível</strong><br>Conecte-se à internet para carregar o mapa OpenStreetMap.</div></div>`;
+    container.innerHTML = `<div class="map-fallback"><strong>Mapa indisponível</strong><br>Conecte-se à internet.</div>`;
     return;
   }
   container.innerHTML = '';
@@ -887,12 +777,16 @@ function initTrackingMap(order) {
   activeMap.fitBounds(route.getBounds(), { padding: [30, 30] });
 }
 
+// ==========================================
+// 4. CADASTRO COM FIREBASE AUTH
+// ==========================================
 function openRegister() {
   if (selectedLoginRole === 'master') return notify('Novos administradores devem ser criados pelo painel Master.', 'error');
   const courierFields = selectedLoginRole === 'courier' ? `
     <label>Veículo<select name="vehicle"><option>Motocicleta</option><option>Bicicleta</option><option>Carro</option><option>Utilitário</option><option>Van</option></select></label>
     <label>Placa<input name="plate" required placeholder="ABC1D23" /></label>
   ` : '';
+
   openModal(`Cadastro de ${roleLabel(selectedLoginRole).toLowerCase()}`, 'Nova conta', `
     <form id="registerForm" class="stack-lg">
       <div class="form-grid two-cols">
@@ -902,26 +796,60 @@ function openRegister() {
         <label>Senha<input name="password" type="password" minlength="6" required /></label>
         ${courierFields}
       </div>
-      ${selectedLoginRole === 'courier' ? '<div class="demo-note">Neste MVP, documentos são representados apenas pelo status de aprovação do painel Master.</div>' : ''}
-      <label class="check legal-check"><input type="checkbox" required /> Aceito os termos e a política de privacidade demonstrativos.</label>
+      <label class="check legal-check"><input type="checkbox" required /> Aceito os termos e a política de privacidade.</label>
       <button class="btn btn-primary btn-lg" type="submit">Criar cadastro</button>
     </form>
   `);
-  document.getElementById('registerForm').addEventListener('submit', event => {
+
+  document.getElementById('registerForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const allUsers = [...state.clients, ...state.couriers, ...state.masters];
-    if (allUsers.some(u => u.email.toLowerCase() === String(data.get('email')).toLowerCase())) return notify('Este e-mail já está cadastrado.', 'error');
-    const base = { id: `${selectedLoginRole.slice(0, 3)}-${Date.now()}`, role: selectedLoginRole, name: data.get('name'), email: data.get('email'), password: data.get('password'), phone: data.get('phone') };
-    if (selectedLoginRole === 'client') state.clients.push({ ...base, active: true });
-    else state.couriers.push({ ...base, approved: false, online: false, vehicle: data.get('vehicle'), plate: String(data.get('plate')).toUpperCase(), rating: 5, balance: 0 });
-    saveState();
-    closeModal();
-    els.loginEmail.value = base.email;
-    els.loginPassword.value = base.password;
-    notify('Cadastro criado. Faça o login para continuar.', 'success');
+    const email = data.get('email');
+    const password = data.get('password');
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      const userData = {
+        name: data.get('name'),
+        email: email,
+        phone: data.get('phone'),
+        role: selectedLoginRole,
+        createdAt: new Date().toISOString()
+      };
+
+      if (selectedLoginRole === 'courier') {
+        userData.vehicle = data.get('vehicle');
+        userData.plate = String(data.get('plate')).toUpperCase();
+        userData.approved = false;
+        userData.online = false;
+        userData.balance = 0;
+        userData.rating = 5;
+        state.couriers.push({ id: firebaseUser.uid, ...userData });
+      } else {
+        userData.active = true;
+        state.clients.push({ id: firebaseUser.uid, ...userData });
+      }
+
+      await setDoc(doc(db, "users", firebaseUser.uid), userData);
+      saveState();
+
+      closeModal();
+      els.loginEmail.value = email;
+      els.loginPassword.value = password;
+      notify('Cadastro criado com sucesso! Faça o login.', 'success');
+    } catch (error) {
+      console.error("Erro no cadastro:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        notify('Este e-mail já está cadastrado.', 'error');
+      } else {
+        notify('Erro ao criar conta. Tente novamente.', 'error');
+      }
+    }
   });
 }
+// ==========================================
 
 function openAdminStatus(order) {
   openModal('Alterar status', order.id, `
@@ -947,7 +875,7 @@ function advanceOrder(order) {
   order.history.push({ status: next, at: new Date().toISOString() });
   if (next === 'completed') {
     const courier = getCurrentUser();
-    courier.balance = Number((courier.balance + order.price * (1 - state.settings.platformCommission)).toFixed(2));
+    courier.balance = Number(((courier.balance || 0) + order.price * (1 - state.settings.platformCommission)).toFixed(2));
   }
   saveState(); renderPage(); notify(`Status: ${statusLabels[next]}.`, 'success');
 }
@@ -955,7 +883,7 @@ function advanceOrder(order) {
 function acceptOrder(order) {
   const courier = getCurrentUser();
   if (!courier.online) return notify('Fique online antes de aceitar entregas.', 'error');
-  if (!courier.approved) return notify('Seu cadastro ainda não foi aprovado.', 'error');
+  if (courier.approved === false) return notify('Seu cadastro ainda não foi aprovado.', 'error');
   const existing = courierOrders().find(o => !['completed', 'cancelled'].includes(o.status));
   if (existing) return notify('Conclua sua entrega atual antes de aceitar outra.', 'error');
   if (order.courierId || order.status !== 'searching') return notify('Este pedido não está mais disponível.', 'error');
@@ -980,7 +908,7 @@ function handleWorkspaceClick(event) {
   if (action === 'pay' && order) openPixPayment(order);
   if (action === 'confirm-pix' && order) {
     order.paymentStatus = 'paid'; order.status = 'searching'; order.history.push({ status: 'searching', at: new Date().toISOString() });
-    saveState(); closeModal(); currentPage = 'orders'; renderPage(); notify('Pix demonstrativo confirmado.', 'success');
+    saveState(); closeModal(); currentPage = 'orders'; renderPage(); notify('Pix confirmado.', 'success');
   }
   if (action === 'accept' && order) acceptOrder(order);
   if (action === 'advance' && order) advanceOrder(order);
@@ -991,9 +919,8 @@ function handleWorkspaceClick(event) {
     const courier = state.couriers.find(c => c.id === id); if (!courier) return; courier.approved = !courier.approved; saveState(); renderPage(); notify('Situação do entregador atualizada.', 'success');
   }
   if (action === 'admin-status' && order) openAdminStatus(order);
-  if (action === 'support') notify('Solicitação de suporte registrada no modo demonstrativo.', 'success');
-  if (action === 'withdraw') notify('Solicitação de saque demonstrativa enviada.', 'success');
-  if (action === 'reset-demo') { state = defaultState(); saveState(); renderPage(); notify('Dados de demonstração restaurados.', 'success'); }
+  if (action === 'withdraw') notify('Solicitação de saque enviada.', 'success');
+  if (action === 'reset-demo') { state = defaultState(); saveState(); renderPage(); notify('Dados restaurados.', 'success'); }
 }
 
 function handleFormSubmit(event) {
@@ -1014,61 +941,83 @@ function handleFormSubmit(event) {
     const user = getCurrentUser();
 
     user.name = data.get('name');
-    user.email = data.get('email');
     user.phone = data.get('phone');
-
     if (session.role === 'courier') {
       user.vehicle = data.get('vehicle');
       user.plate = data.get('plate');
     }
 
-    // Lógica de Alteração de Senha
-    const newPass = data.get('newPassword');
-    const confirmPass = data.get('confirmNewPassword');
-
-    if (newPass || confirmPass) {
-      if (newPass !== confirmPass) {
-        return notify('As senhas não coincidem.', 'error');
-      }
-      if (newPass.length < 6) {
-        return notify('A nova senha deve ter pelo menos 6 caracteres.', 'error');
-      }
-      user.password = newPass;
-      notify('Perfil e senha atualizados com sucesso!', 'success');
-    } else {
-      notify('Perfil atualizado.', 'success');
+    if (session && session.userId) {
+      updateDoc(doc(db, "users", session.userId), {
+        name: user.name,
+        phone: user.phone,
+        vehicle: user.vehicle || '',
+        plate: user.plate || ''
+      }).then(() => {
+        saveState();
+        enterApp();
+        currentPage = 'profile';
+        renderPage();
+        notify('Perfil atualizado com sucesso!', 'success');
+      }).catch(err => {
+        console.error(err);
+        notify('Erro ao salvar no banco de dados.', 'error');
+      });
     }
-
-    saveState();
-    enterApp();
-    currentPage = 'profile';
-    renderPage();
   }
 }
 
-// Eventos de autenticação e interface
+// ==========================================
+// 5. EVENT LISTENERS
+// ==========================================
 document.querySelectorAll('.role-tab').forEach(btn => btn.addEventListener('click', () => setLoginRole(btn.dataset.role)));
 
-els.fillDemoBtn.addEventListener('click', () => {
-  const demo = selectedLoginRole === 'client'
-    ? ['cliente@demo.com', '123456']
-    : selectedLoginRole === 'courier'
-      ? ['entregador@demo.com', '123456']
-      : ['master@bhentrega.com', 'Admin123'];
-  els.loginEmail.value = demo[0]; els.loginPassword.value = demo[1]; notify('Dados de demonstração preenchidos.');
-});
-
-els.loginForm.addEventListener('submit', event => {
+// LOGIN COM FIREBASE AUTH
+els.loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const user = findUserByCredentials(selectedLoginRole, els.loginEmail.value.trim(), els.loginPassword.value);
-  if (!user) return notify('E-mail, senha ou tipo de acesso inválido.', 'error');
-  if (selectedLoginRole === 'courier' && !user.approved) notify('Seu cadastro está pendente de aprovação, mas o acesso demonstrativo foi liberado.');
-  saveSession({ role: selectedLoginRole, userId: user.id });
-  enterApp();
+
+  const email = els.loginEmail.value.trim();
+  const password = els.loginPassword.value;
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = userCredential.user;
+
+    const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+
+      saveSession({
+        role: userData.role,
+        userId: firebaseUser.uid,
+        email: firebaseUser.email
+      });
+
+      state.currentUser = { id: firebaseUser.uid, ...userData };
+      await loadStateFromFirebase();
+      enterApp();
+      notify(`Bem-vindo, ${userData.name}!`, 'success');
+    } else {
+      notify('Usuário autenticado, mas dados não encontrados no banco.', 'error');
+      await signOut(auth);
+    }
+  } catch (error) {
+    console.error("Erro no login:", error);
+    notify('E-mail ou senha inválidos. Faça seu cadastro para criar uma conta.', 'error');
+  }
 });
 
 els.openRegisterBtn.addEventListener('click', openRegister);
-els.logoutBtn.addEventListener('click', () => { saveSession(null); showLanding(); notify('Sessão encerrada.'); });
+
+els.logoutBtn.addEventListener('click', async () => {
+  await signOut(auth);
+  saveSession(null);
+  state.currentUser = null;
+  showLanding();
+  notify('Sessão encerrada.');
+});
+
 els.closeModalBtn.addEventListener('click', closeModal);
 els.modalBackdrop.addEventListener('click', event => { if (event.target === els.modalBackdrop) closeModal(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !els.modalBackdrop.classList.contains('hidden')) closeModal(); });
@@ -1089,4 +1038,12 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./sw.js').catch(() => { });
 }
 
-if (session && getCurrentUser()) enterApp(); else showLanding();
+// Inicialização
+if (session) {
+  loadStateFromFirebase().then(() => {
+    if (state.currentUser) enterApp();
+    else showLanding();
+  });
+} else {
+  showLanding();
+}

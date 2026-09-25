@@ -59,7 +59,7 @@
         <form id="loginForm" class="card login-card">
           <div>
             <h2 id="loginTitle">Entrar como cliente</h2>
-            <p class="muted">Use sua conta ou preencha automaticamente com os dados de demonstração.</p>
+            <p class="muted">Use sua conta cadastrada ou crie um novo cadastro abaixo.</p>
           </div>
           <label>
             E-mail
@@ -70,11 +70,7 @@
             <input id="loginPassword" type="password" required autocomplete="current-password" placeholder="••••••••" />
           </label>
           <button class="btn btn-primary btn-block" type="submit">Entrar</button>
-          <button id="fillDemoBtn" class="btn btn-soft btn-block" type="button">Usar acesso de demonstração</button>
           <button id="openRegisterBtn" class="link-button" type="button">Criar novo cadastro</button>
-          <div class="demo-note">
-            <strong>Ambiente demonstrativo:</strong> pagamentos, documentos e rastreamento são simulados localmente.
-          </div>
         </form>
       </div>
     </section>
@@ -248,7 +244,8 @@
   </template>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="app.js"></script>
+  <script type="module" src="firebase-config.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 
 </html>
